@@ -4968,10 +4968,10 @@ with tabs[20]:
     pdca_df = pd.DataFrame(pdca_summary)
     st.subheader("📊 جدول خلاصه PDCA")
     # قبل (خطا):
-st.dataframe(pdca_df.style.applymap(lambda x: 'background-color: lightgreen' if x else 'background-color: lightcoral', subset=['Status']))
+    st.dataframe(pdca_df.style.applymap(lambda x: 'background-color: lightgreen' if x else 'background-color: lightcoral', subset=['Status']))
 
-# بعد (اصلاح):
-st.dataframe(pdca_df.style.map(lambda x: 'background-color: lightgreen' if x else 'background-color: lightcoral', subset=['Status']))
+       # بعد (اصلاح):
+    st.dataframe(pdca_df.style.map(lambda x: 'background-color: lightgreen' if x else 'background-color: lightcoral', subset=['Status']))
 
     # چارت پیشرفت (radar برای PDCA)
     import plotly.graph_objects as go
