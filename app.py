@@ -4358,16 +4358,21 @@ with tabs[18]:
 # اجرای تابع روی دیتافریم جاری (همان داده‌ای که قبلاً فیلتر شده)
 # ============================================================
 # فرض کنید متغیر filtered_df قبلاً در جای دیگری تعریف شده است
+# ============================================================
+# Tab 19: خط مبنا (Baseline) — نسخه چندمتغیره با کنترل VIF
+# ============================================================
+# ============================================================
+# Tab 19: خط مبنا (Baseline) — روش گام‌به‌گام مشابه اکسل
+# ============================================================
 with tabs[19]:
-    st.subheader("📊 خط مبنا (Baseline) — منطبق با شیت 're' اکسل")
-    
+    st.subheader("📊 خط مبنا (Baseline) — انتخاب گام‌به‌گام متغیرها (مشابه اکسل)")
+    st.caption("✅ حذف تدریجی متغیرهای هم‌خط بر اساس بالاترین همبستگی دو به دو | 🔄 حفظ متغیر با همبستگی بیشتر به متغیر وابسته")
+
     # ==========================================
     # کلیدهای session_state
     # ==========================================
     TAB_KEY = "tab19_"
-    PRODUCTION_PELLET_KEY = f"{TAB_KEY}production_pellet"
-    PRODUCTION_CONCENTRATE_KEY = f"{TAB_KEY}production_concentrate"
-    
+
     # ==========================================
     # انتخاب تجهیزات (همان سایدبار)
     # ==========================================
@@ -4375,17 +4380,17 @@ with tabs[19]:
     if not selected_baseline_equipments:
         st.info("⚠️ لطفاً از سایدبار حداقل یک تجهیز انتخاب کنید.")
         st.stop()
-    
+
     # ==========================================
     # انتخاب بازه پایه (برای رگرسیون)
     # ==========================================
     st.markdown("---")
     st.markdown("### 📅 بازه پایه (برای رگرسیون)")
     st.caption("داده‌های این بازه برای محاسبه معادله رگرسیون استفاده می‌شوند.")
-    
+
     min_date_df = filtered_df["تاریخ"].min().date()
     max_date_df = filtered_df["تاریخ"].max().date()
-    
+
     col_base1, col_base2 = st.columns(2)
     with col_base1:
         base_start = st.date_input(
@@ -4403,20 +4408,20 @@ with tabs[19]:
             max_value=max_date_df,
             key=f"{TAB_KEY}base_end"
         )
-    
+
     if base_end < base_start:
         st.error("⚠️ تاریخ پایان نباید از تاریخ شروع کوچک‌تر باشد.")
         st.stop()
-    
+
     st.info(f"📊 بازه پایه: **{safe_jalali_format(base_start)}** تا **{safe_jalali_format(base_end)}**")
-    
+
     # ==========================================
     # انتخاب بازه مقایسه (برای محاسبه Residuals)
     # ==========================================
     st.markdown("---")
     st.markdown("### 📅 بازه مقایسه (برای محاسبه Residuals)")
     st.caption("برای هر ماه در این بازه، EnB با معادله رگرسیون محاسبه شده و Residuals نمایش داده می‌شود.")
-    
+
     col_comp1, col_comp2 = st.columns(2)
     with col_comp1:
         comp_start = st.date_input(
@@ -4434,173 +4439,282 @@ with tabs[19]:
             max_value=max_date_df,
             key=f"{TAB_KEY}comp_end"
         )
-    
+
     if comp_end < comp_start:
         st.error("⚠️ تاریخ پایان نباید از تاریخ شروع کوچک‌تر باشد.")
         st.stop()
-    
+
     st.info(f"📊 بازه مقایسه: **{safe_jalali_format(comp_start)}** تا **{safe_jalali_format(comp_end)}**")
-    
+
     # ==========================================
-    # تنظیمات پیشرفته (غیرفعال‌سازی فیلترهای سخت‌گیرانه)
+    # تنظیمات پیشرفته (گام‌به‌گام)
     # ==========================================
     st.markdown("---")
-    st.markdown("### ⚙️ تنظیمات پیشرفته")
-    
+    st.markdown("### ⚙️ تنظیمات پیشرفته (روش گام‌به‌گام)")
+
     disable_strict_filters = st.checkbox(
         "❌ غیرفعال‌سازی فیلترهای سخت‌گیرانه (P-Value و R²) - حالت انطباق با اکسل",
-        value=True,  # پیش‌فرض فعال برای هماهنگی با اکسل
+        value=True,
         key=f"{TAB_KEY}disable_filters"
     )
-    st.caption("📌 در اکسل معمولاً فیلتر خاصی روی P-Value و R² اعمال نمی‌شود. با فعال بودن این گزینه، هر مدلی با هر R² پذیرفته می‌شود.")
-    
+    st.caption("📌 در اکسل معمولاً فیلتر خاصی روی P-Value و R² اعمال نمی‌شود.")
+
+    # تنظیمات مخصوص روش گام‌به‌گام
+    col_adv1, col_adv2 = st.columns(2)
+    with col_adv1:
+        collinearity_threshold = st.slider(
+            "آستانه همبستگی برای تشخیص هم‌خطی (گام‌به‌گام):",
+            min_value=0.60, max_value=0.95, value=0.85, step=0.01,
+            help="اگر همبستگی دو متغیر مستقل از این مقدار بیشتر باشد، متغیر با همبستگی کمتر به مصرف حذف می‌شود.",
+            key=f"{TAB_KEY}coll_threshold"
+        )
+    with col_adv2:
+        min_corr_to_target = st.slider(
+            "حداقل همبستگی مطلق با متغیر وابسته برای ورود به مدل:",
+            min_value=0.1, max_value=0.8, value=0.3, step=0.05,
+            help="متغیرهایی با همبستگی کمتر از این مقدار، حتی اگر هم‌خط نباشند، وارد مدل نمی‌شوند.",
+            key=f"{TAB_KEY}min_corr"
+        )
+
+    # ==========================================
+    # تابع گام‌به‌گام حذف هم‌خطی (مشابه اکسل) — اصلاح‌شده
+    # ==========================================
+    def stepwise_remove_collinear(df, target_col, candidate_cols, threshold=0.85, min_corr=0.3):
+        """
+        حذف گام‌به‌گام متغیرهای هم‌خط بر اساس بیشترین همبستگی دو به دو
+        - همیشه دو مقدار برمی‌گرداند: (remaining_vars, removal_log)
+        """
+        remaining = [c for c in candidate_cols if c in df.columns and df[c].nunique() > 3]
+        
+        # حذف اولیه متغیرهای با همبستگی خیلی کم به هدف
+        filtered_by_corr = []
+        for var in remaining:
+            corr_val = abs(df[target_col].corr(df[var]))
+            if not np.isnan(corr_val) and corr_val >= min_corr:
+                filtered_by_corr.append(var)
+        remaining = filtered_by_corr
+        
+        # اگر تعداد متغیرها کمتر از ۲ باشد، با لاگ خالی برمی‌گردیم
+        if len(remaining) < 2:
+            return remaining, []   # <--- اصلاح: برگرداندن دو مقدار
+
+        iteration = 0
+        removed_log = []
+        
+        while True:
+            iteration += 1
+            if len(remaining) < 2:
+                break
+                
+            # محاسبه ماتریس همبستگی بین متغیرهای باقی‌مانده
+            corr_matrix = df[remaining].corr().abs()
+            
+            # پیدا کردن بالاترین همبستگی (غیر از قطر اصلی)
+            upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+            max_corr = upper_tri.max().max()
+            
+            # اگر بالاترین همبستگی کمتر از آستانه باشد، فرآیند متوقف می‌شود
+            if pd.isna(max_corr) or max_corr < threshold:
+                break
+                
+            # پیدا کردن جفت مربوطه
+            pairs = upper_tri.stack().reset_index()
+            pairs.columns = ['var1', 'var2', 'corr']
+            max_pair = pairs.loc[pairs['corr'].idxmax()]
+            var1, var2 = max_pair['var1'], max_pair['var2']
+            
+            # محاسبه همبستگی هر کدام با متغیر وابسته
+            corr1 = abs(df[target_col].corr(df[var1]))
+            corr2 = abs(df[target_col].corr(df[var2]))
+            
+            # حذف متغیری که همبستگی کمتری با هدف دارد
+            if corr1 < corr2:
+                to_remove = var1
+                reason = f"همبستگی با هدف: {corr1:.3f} < {corr2:.3f}"
+            else:
+                to_remove = var2
+                reason = f"همبستگی با هدف: {corr2:.3f} < {corr1:.3f}"
+                
+            remaining.remove(to_remove)
+            removed_log.append(f"مرحله {iteration}: حذف '{to_remove}' (همبستگی با '{var2 if to_remove==var1 else var1}' = {max_corr:.3f}, {reason})")
+        
+        return remaining, removed_log   # <--- همیشه دو مقدار
+
+    # ==========================================
+    # تابع کمکی: دریافت داده برای یک تجهیز در بازه
+    # ==========================================
+    def get_equip_data_with_x(df_all, equip, start_date, end_date):
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
+        mask = (df_all["تاریخ"] >= start_dt) & (df_all["تاریخ"] < end_dt)
+        numeric_cols = df_all.select_dtypes(include=['number']).columns.tolist()
+        independent_cols = [c for c in numeric_cols if c != equip]
+        cols_to_select = ["تاریخ", equip] + independent_cols
+        df_eq = df_all.loc[mask, cols_to_select].copy()
+        df_eq = df_eq.rename(columns={equip: "consumption"})
+        df_eq = df_eq.dropna(subset=["consumption"])
+        df_eq = df_eq.sort_values("تاریخ").reset_index(drop=True)
+        df_eq["ماه_شمسی"] = df_eq["تاریخ"].apply(lambda x: safe_jalali_format(x)[:7])
+        return df_eq
+
     # ==========================================
     # دکمه اجرا
     # ==========================================
     if st.button("🚀 محاسبه و نمایش نتایج", type="primary", use_container_width=True, key=f"{TAB_KEY}run"):
-        
+
         if not selected_baseline_equipments:
             st.warning("⚠️ لطفاً حداقل یک تجهیز انتخاب کنید.")
         else:
-            # ==========================================
-            # تابع کمکی: دریافت داده برای یک تجهیز در بازه به همراه متغیرهای مستقل
-            # ==========================================
-            def get_equip_data_with_x(df_all, equip, start_date, end_date):
-                start_dt = pd.to_datetime(start_date)
-                end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
-                mask = (df_all["تاریخ"] >= start_dt) & (df_all["تاریخ"] < end_dt)
-                # انتخاب ستون‌های مورد نیاز: تاریخ، مصرف، و همه ستون‌های عددی دیگر (به جز تاریخ و مصرف)
-                numeric_cols = df_all.select_dtypes(include=['number']).columns.tolist()
-                # حذف ستون مصرف از لیست متغیرهای مستقل (اما خود مصرف را نگه می‌داریم)
-                independent_cols = [c for c in numeric_cols if c != equip]
-                cols_to_select = ["تاریخ", equip] + independent_cols
-                df_eq = df_all.loc[mask, cols_to_select].copy()
-                df_eq = df_eq.rename(columns={equip: "consumption"})
-                df_eq = df_eq.dropna(subset=["consumption"])
-                df_eq = df_eq.sort_values("تاریخ").reset_index(drop=True)
-                df_eq["ماه_شمسی"] = df_eq["تاریخ"].apply(lambda x: safe_jalali_format(x)[:7])
-                return df_eq
-            
-            # ==========================================
-            # حلقه روی تجهیزات
-            # ==========================================
             all_results = []
             residual_summary = []
-            
+
             for equip in selected_baseline_equipments:
                 st.markdown(f"---")
                 st.markdown(f"### ⚙️ تجهیز: **{equip}**")
                 unit = get_unit_for_column(filtered_df, equip, st.session_state.get('custom_units', {}))
-                
-                # دریافت داده‌های بازه پایه (شامل همه متغیرهای مستقل)
+
+                # دریافت داده‌های بازه پایه
                 df_base = get_equip_data_with_x(filtered_df, equip, base_start, base_end)
                 if df_base.empty:
                     st.warning(f"⚠️ داده‌ای برای تجهیز '{equip}' در بازه پایه یافت نشد.")
                     continue
-                
-                # دریافت داده‌های بازه مقایسه (شامل همه متغیرهای مستقل)
+
+                # دریافت داده‌های بازه مقایسه
                 df_comp = get_equip_data_with_x(filtered_df, equip, comp_start, comp_end)
                 if df_comp.empty:
                     st.warning(f"⚠️ داده‌ای برای تجهیز '{equip}' در بازه مقایسه یافت نشد.")
                     continue
-                
+
                 # ==========================================
-                # ۱. تعیین متغیر مستقل برای رگرسیون (بر اساس همبستگی)
+                # ۱. شناسایی متغیرهای کاندید و اعمال روش گام‌به‌گام
                 # ==========================================
-                # لیست ستون‌های عددی به جز مصرف و تاریخ
                 potential_x = [col for col in df_base.columns if col not in ["تاریخ", "consumption", "ماه_شمسی"]]
                 
-                if not potential_x:
-                    st.warning(f"⚠️ هیچ متغیر مستقل عددی برای تجهیز '{equip}' در بازه پایه یافت نشد.")
-                    continue
-                
-                # محاسبه همبستگی هر متغیر با مصرف
+                # محاسبه همبستگی اولیه برای نمایش
                 corr_dict = {}
                 for col in potential_x:
-                    if df_base[col].nunique() > 3:  # حداقل ۴ مقدار منحصربه‌فرد برای همبستگی
+                    if df_base[col].nunique() > 3:
                         corr = df_base["consumption"].corr(df_base[col])
                         if not np.isnan(corr):
                             corr_dict[col] = abs(corr)
-                
+
                 if not corr_dict:
                     st.warning(f"⚠️ هیچ همبستگی معنی‌داری برای تجهیز '{equip}' یافت نشد.")
                     continue
-                
-                # انتخاب متغیر با بیشترین همبستگی (مطلق)
-                x_var = max(corr_dict, key=corr_dict.get)
-                best_corr = corr_dict[x_var]
-                
-                # --- جدید: نمایش جدول همبستگی کامل ---
+
+                # نمایش جدول همبستگی کامل
                 st.markdown(f"### 📊 جدول همبستگی مصرف با متغیرهای دیگر — {equip}")
                 corr_table = pd.DataFrame({
                     "متغیر": list(corr_dict.keys()),
                     "همبستگی": [round(v, 3) for v in corr_dict.values()]
                 }).sort_values("همبستگی", ascending=False)
                 st.dataframe(corr_table.style.background_gradient(cmap="RdBu_r", subset=["همبستگی"]), use_container_width=True, hide_index=True)
-                st.caption(f"✅ متغیر انتخاب‌شده: **{x_var}** با ضریب همبستگی **{best_corr:.3f}**")
-                
+
+                # اعمال روش گام‌به‌گام
+                candidate_vars = list(corr_dict.keys())
+                selected_vars, removal_log = stepwise_remove_collinear(
+                    df_base, 
+                    "consumption", 
+                    candidate_vars, 
+                    threshold=collinearity_threshold,
+                    min_corr=min_corr_to_target
+                )
+
+                # نمایش لاگ حذف‌ها
+                if removal_log:
+                    st.markdown("#### 📋 مراحل حذف متغیرهای هم‌خط (گام‌به‌گام):")
+                    for log in removal_log:
+                        st.caption(f"- {log}")
+
+                if not selected_vars:
+                    st.warning("⚠️ پس از اعمال روش گام‌به‌گام، هیچ متغیری باقی نماند. از متغیر با بیشترین همبستگی استفاده می‌شود.")
+                    selected_vars = [max(corr_dict, key=corr_dict.get)]
+
+                st.success(f"✅ متغیرهای نهایی انتخاب‌شده: {', '.join(selected_vars)}")
+
                 # ==========================================
-                # ۲. اجرای رگرسیون روی بازه پایه
+                # ۲. اجرای رگرسیون روی متغیرهای انتخاب‌شده
                 # ==========================================
-                df_reg = df_base[[x_var, "consumption"]].dropna()
-                if len(df_reg) < 5:
-                    st.warning(f"⚠️ داده کافی برای رگرسیون در بازه پایه (حداقل ۵ نقطه) وجود ندارد.")
+                X_reg = df_base[selected_vars].dropna()
+                y_reg = df_base.loc[X_reg.index, "consumption"]
+
+                if len(X_reg) < 5:
+                    st.warning(f"⚠️ داده کافی برای رگرسیون (حداقل ۵ نقطه) وجود ندارد.")
                     continue
-                
-                X = sm.add_constant(df_reg[[x_var]])
-                y = df_reg["consumption"]
-                
-                try:
-                    model = sm.OLS(y, X).fit()
-                    
-                    # اگر فیلتر غیرفعال باشد، هر مدلی قبول می‌شود
-                    if not disable_strict_filters:
-                        if model.f_pvalue >= 0.05 or model.rsquared < 0.67:
-                            st.warning(f"⚠️ مدل معنی‌دار نشد (R²={model.rsquared:.3f}, p={model.f_pvalue:.4f})")
-                            continue
-                    
-                    intercept = float(model.params.iloc[0])
-                    coef = float(model.params[x_var])
-                    
-                    st.success(f"✅ معادله رگرسیون: EnB = {intercept:.3f} + {coef:.6f} × {x_var}")
-                    st.caption(f"📊 R² = {model.rsquared:.3f} | تعداد نقاط = {len(df_reg)} | همبستگی = {best_corr:.3f}")
-                    
-                except Exception as e:
-                    st.error(f"❌ خطا در رگرسیون: {e}")
-                    continue
-                
+
+                X_const = sm.add_constant(X_reg)
+                model = sm.OLS(y_reg, X_const).fit()
+
+                # بررسی معنی‌داری مدل (در صورت فعال نبودن فیلتر)
+                if not disable_strict_filters:
+                    if model.f_pvalue >= 0.05 or model.rsquared < 0.67:
+                        st.warning(f"⚠️ مدل معنی‌دار نشد (R²={model.rsquared:.3f}, p={model.f_pvalue:.4f}). بازگشت به تک‌متغیره...")
+                        x_var = max(corr_dict, key=corr_dict.get)
+                        selected_vars = [x_var]
+                        X_reg_single = df_base[[x_var]].dropna()
+                        y_reg_single = df_base.loc[X_reg_single.index, "consumption"]
+                        X_const_single = sm.add_constant(X_reg_single)
+                        model = sm.OLS(y_reg_single, X_const_single).fit()
+                        st.info(f"به تک‌متغیره با '{x_var}' برگشتیم.")
+
+                # استخراج ضرایب
+                intercept = float(model.params.iloc[0])
+                coefs = {var: float(model.params[var]) for var in selected_vars}
+
+                # ساخت معادله
+                equation_terms = [f"{coefs[var]:.6f}×{var}" for var in selected_vars]
+                equation = " + ".join(equation_terms)
+                if abs(intercept) > 0.001:
+                    equation = f"{intercept:.3f} + " + equation
+
+                st.success(f"✅ معادله رگرسیون نهایی: EnB = {equation}")
+                st.caption(f"📊 R² = {model.rsquared:.3f} | تعداد نقاط = {len(X_reg)} | p-value = {model.f_pvalue:.4f} | تعداد متغیرها: {len(selected_vars)}")
+
+                # نمایش ضرایب در جدول
+                coef_df = pd.DataFrame({
+                    "متغیر": ["ثابت (Intercept)"] + selected_vars,
+                    "ضریب": [intercept] + [coefs[v] for v in selected_vars]
+                })
+                st.dataframe(coef_df.style.format({"ضریب": "{:.6f}"}), use_container_width=True, hide_index=True)
+
                 # ==========================================
-                # ۳. محاسبه EnB برای هر ماه در بازه مقایسه
+                # ۳. محاسبه EnB در بازه مقایسه
                 # ==========================================
-                # اطمینان از وجود ستون x_var در df_comp
-                if x_var not in df_comp.columns:
-                    st.warning(f"⚠️ متغیر مستقل '{x_var}' در بازه مقایسه یافت نشد.")
+                missing_vars = [v for v in selected_vars if v not in df_comp.columns]
+                if missing_vars:
+                    st.warning(f"متغیرهای {missing_vars} در بازه مقایسه یافت نشدند. از میانگین بازه پایه استفاده می‌شود.")
+                    for v in missing_vars:
+                        mean_val = df_base[v].mean()
+                        df_comp[v] = mean_val
+
+                df_comp_clean = df_comp.dropna(subset=selected_vars)
+                if df_comp_clean.empty:
+                    st.warning(f"⚠️ داده‌ای برای متغیرهای مستقل در بازه مقایسه یافت نشد.")
                     continue
-                
-                df_comp = df_comp.dropna(subset=[x_var])
-                if df_comp.empty:
-                    st.warning(f"⚠️ داده‌ای برای متغیر مستقل '{x_var}' در بازه مقایسه یافت نشد.")
-                    continue
-                
-                # محاسبه EnB برای هر ماه
-                df_comp["EnB"] = intercept + coef * df_comp[x_var]
-                df_comp["Residuals"] = df_comp["consumption"] - df_comp["EnB"]
-                df_comp["Observation"] = range(1, len(df_comp) + 1)
-                
+
+                # محاسبه EnB
+                df_comp_clean["EnB"] = intercept
+                for v in selected_vars:
+                    df_comp_clean["EnB"] += coefs[v] * df_comp_clean[v]
+
+                df_comp_clean["Residuals"] = df_comp_clean["consumption"] - df_comp_clean["EnB"]
+                df_comp_clean["Observation"] = range(1, len(df_comp_clean) + 1)
+
                 # ==========================================
                 # ۴. نمایش جدول Residuals
                 # ==========================================
                 st.markdown(f"### 📋 جدول Residuals — {equip}")
-                
-                # ساخت جدول نمایشی
-                display_df = df_comp[["Observation", "ماه_شمسی", "consumption", x_var, "EnB", "Residuals"]].copy()
-                display_df.columns = ["Observation", "ماه شمسی", f"مصرف واقعی ({unit})", x_var, f"EnB ({unit})", "Residuals"]
-                display_df[f"مصرف واقعی ({unit})"] = display_df[f"مصرف واقعی ({unit})"].round(2)
-                display_df[f"EnB ({unit})"] = display_df[f"EnB ({unit})"].round(2)
-                display_df["Residuals"] = display_df["Residuals"].round(2)
-                
+
+                display_cols = ["Observation", "ماه_شمسی", "consumption"] + selected_vars + ["EnB", "Residuals"]
+                display_df = df_comp_clean[display_cols].copy()
+                display_df.columns = ["Observation", "ماه شمسی", f"مصرف واقعی ({unit})"] + [f"{v}" for v in selected_vars] + [f"EnB ({unit})", "Residuals"]
+
+                for col in display_df.columns:
+                    if col not in ["Observation", "ماه شمسی"]:
+                        display_df[col] = display_df[col].round(2)
+
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
-                
+
                 # ==========================================
                 # ۵. دانلود CSV Residuals
                 # ==========================================
@@ -4613,23 +4727,23 @@ with tabs[19]:
                     mime="text/csv",
                     key=f"{TAB_KEY}download_residuals_{equip}"
                 )
-                
+
                 # ==========================================
-                # ۶. نمودار مقایسه مصرف واقعی و EnB  (جدید)
+                # ۶. نمودار مقایسه مصرف واقعی و EnB
                 # ==========================================
                 st.markdown(f"### 📈 نمودار مقایسه مصرف واقعی و EnB — {equip}")
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
-                    x=df_comp["ماه_شمسی"],
-                    y=df_comp["consumption"],
+                    x=df_comp_clean["ماه_شمسی"],
+                    y=df_comp_clean["consumption"],
                     mode="lines+markers",
                     name=f"مصرف واقعی ({unit})",
                     line=dict(color="#C74A1B", width=3),
                     marker=dict(size=8)
                 ))
                 fig.add_trace(go.Scatter(
-                    x=df_comp["ماه_شمسی"],
-                    y=df_comp["EnB"],
+                    x=df_comp_clean["ماه_شمسی"],
+                    y=df_comp_clean["EnB"],
                     mode="lines+markers",
                     name=f"EnB ({unit})",
                     line=dict(color="#1A1A1A", width=3, dash="dash"),
@@ -4644,16 +4758,16 @@ with tabs[19]:
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                 )
                 st.plotly_chart(fig, use_container_width=True)
-                
+
                 # ==========================================
                 # ۷. خلاصه آماری Residuals
                 # ==========================================
-                avg_res = df_comp["Residuals"].mean()
-                max_res = df_comp["Residuals"].max()
-                min_res = df_comp["Residuals"].min()
-                above_count = (df_comp["Residuals"] > 0).sum()
-                below_count = (df_comp["Residuals"] < 0).sum()
-                
+                avg_res = df_comp_clean["Residuals"].mean()
+                max_res = df_comp_clean["Residuals"].max()
+                min_res = df_comp_clean["Residuals"].min()
+                above_count = (df_comp_clean["Residuals"] > 0).sum()
+                below_count = (df_comp_clean["Residuals"] < 0).sum()
+
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("میانگین Residuals", f"{avg_res:+.2f} {unit}")
@@ -4663,23 +4777,21 @@ with tabs[19]:
                     st.metric("کمترین Residuals", f"{min_res:+.2f} {unit}", delta="پایین‌ترین")
                 with col4:
                     st.metric("تعداد", f"{below_count} منفی / {above_count} مثبت")
-                
+
                 # ==========================================
                 # ۸. ذخیره نتایج برای دانلود خلاصه
                 # ==========================================
                 residual_summary.append({
                     "تجهیز": equip,
-                    "متغیر مستقل": x_var,
-                    "همبستگی": round(best_corr, 3),
-                    "Intercept": round(intercept, 3),
-                    "ضریب": round(coef, 6),
+                    "متغیرهای مستقل": ", ".join(selected_vars),
+                    "معادله": equation,
                     "R²": round(model.rsquared, 3),
-                    "تعداد نقاط": len(df_reg),
+                    "تعداد نقاط": len(X_reg),
                     "میانگین Residuals": round(avg_res, 2),
                     "بیشترین Residuals": round(max_res, 2),
                     "کمترین Residuals": round(min_res, 2)
                 })
-            
+
             # ==========================================
             # ۹. دانلود خلاصه نتایج
             # ==========================================
@@ -4688,7 +4800,7 @@ with tabs[19]:
                 st.markdown("## 📥 خروجی خلاصه")
                 summary_df = pd.DataFrame(residual_summary)
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
-                
+
                 csv_summary = summary_df.to_csv(index=False, encoding='utf-8-sig')
                 st.download_button(
                     label="📥 دانلود خلاصه نتایج (CSV)",
@@ -4697,42 +4809,46 @@ with tabs[19]:
                     mime="text/csv",
                     key=f"{TAB_KEY}download_summary"
                 )
-                
+
                 st.success(f"✅ محاسبه برای {len(residual_summary)} تجهیز با موفقیت انجام شد.")
                 st.balloons()
-    
+
     # ==========================================
     # راهنمای استفاده
     # ==========================================
-    with st.expander("ℹ️ راهنمای استفاده — منطبق با شیت 're' اکسل", expanded=False):
+    with st.expander("ℹ️ راهنمای استفاده — روش گام‌به‌گام (مشابه اکسل)", expanded=False):
         st.markdown("""
         ### 🎯 هدف این تب
-        
-        این تب دقیقاً مانند **شیت "re"** در فایل اکسل شما عمل می‌کند:
-        
-        1. **بازه پایه** را انتخاب کنید. داده‌های این بازه برای **محاسبه معادله رگرسیون** استفاده می‌شوند.
-        2. **متغیر مستقل** به‌صورت خودکار بر اساس **بیشترین همبستگی** با مصرف در بازه پایه انتخاب می‌شود.
-        3. **بازه مقایسه** را انتخاب کنید. برای هر ماه در این بازه، **EnB با همان معادله رگرسیون** محاسبه می‌شود.
-        4. **جدول Residuals** شامل Observation, مصرف واقعی, EnB, و Residuals نمایش داده می‌شود.
-        5. **نمودار مقایسه** مصرف واقعی و EnB برای تحلیل بصری.
-        6. **جدول همبستگی** کامل برای توجیه انتخاب متغیر مستقل.
-        
-        ### 🔧 تنظیمات
-        
-        - **غیرفعال‌سازی فیلترهای سخت‌گیرانه**: برای هماهنگی با اکسل، این گزینه را فعال بگذارید (پیش‌فرض فعال است).
-        
-        ### 📊 خروجی
-        
+
+        این تب با استفاده از **روش گام‌به‌گام بر اساس همبستگی دو به دو** (دقیقاً مشابه روشی که در اکسل برای حذف متغیرهای هم‌خط استفاده می‌شود)، خط مبنای انرژی را محاسبه می‌کند.
+
+        #### 🔍 فرآیند گام‌به‌گام:
+
+        1. **همبستگی‌سنجی:** همبستگی تمام متغیرهای عددی با مصرف و همچنین با یکدیگر محاسبه می‌شود.
+        2. **فیلتر اولیه:** متغیرهایی که همبستگی آنها با مصرف کمتر از **حداقل همبستگی با متغیر وابسته** باشد، حذف می‌شوند.
+        3. **یافتن جفت هم‌خط:** در بین متغیرهای باقی‌مانده، جفتی که **بیشترین همبستگی** را با یکدیگر دارند، پیدا می‌شود.
+        4. **حذف تدریجی:** اگر همبستگی این جفت از **آستانه همبستگی** بیشتر باشد، متغیری که **همبستگی کمتری با مصرف** دارد، حذف می‌شود.
+        5. **تکرار:** این فرآیند آنقدر تکرار می‌شود تا هیچ جفتی با همبستگی بیشتر از آستانه باقی نماند.
+
+        #### ⚙️ تنظیمات قابل تغییر:
+
+        - **آستانه همبستگی برای تشخیص هم‌خطی:** هرچه بالاتر باشد، متغیرهای کمتری حذف می‌شوند (پیشنهاد: ۰٫۸۵).
+        - **حداقل همبستگی با متغیر وابسته:** متغیرهایی که همبستگی بسیار کمی با مصرف دارند، از ابتدا وارد مدل نمی‌شوند.
+
+        #### 📊 خروجی‌ها:
+
         - جدول همبستگی کامل
-        - معادله رگرسیون
-        - جدول Residuals برای هر تجهیز
-        - نمودار مقایسه
-        - خلاصه آماری Residuals
-        - امکان دانلود CSV برای هر تجهیز و خلاصه کلی
-        
-        ### 📌 نکته مهم
-        
-        برای بازتولید دقیق خروجی اکسل، بازه پایه و بازه مقایسه را **همانند اکسل** تنظیم کنید (معمولاً بازه پایه همان داده‌های رگرسیون و بازه مقایسه همان داده‌هایی است که Residuals برای آن‌ها محاسبه شده است).
+        - گزارش مراحل حذف متغیرها (لاگ گام‌به‌گام)
+        - معادله رگرسیون نهایی (با تمام ضرایب)
+        - جدول Residuals برای بازه مقایسه
+        - نمودار مقایسه مصرف واقعی و EnB
+        - خلاصه آماری و امکان دانلود CSV
+
+        #### 📌 مزیت این روش نسبت به VIF:
+
+        - **R² بالاتر:** با حذف فقط متغیرهای کاملاً تکراری، متغیرهای با همبستگی بالا حفظ می‌شوند.
+        - **تطابق با اکسل:** دقیقاً همان روشی که در فایل‌های اکسل خود برای ساخت خط مبنا استفاده می‌کنید.
+        - **شفافیت:** مراحل حذف هر متغیر به‌صورت لاگ نمایش داده می‌شود.
         """)
 with tabs[20]:
     st.subheader("📋 گزارش EnMS برای ISO 50001 (چرخه PDCA بهبودیافته)")
