@@ -1583,19 +1583,26 @@ with tabs[4]:
     else:
         # آماده‌سازی داده برای نمایش و دانلود
         df_export = filtered_df[["تاریخ شمسی"] + selected_equipment].copy()
+
         # نمایش جدول با واحد (فقط برای کاربر)
         df_display = df_export.copy()
         for col in selected_equipment:
-        unit = get_unit_for_column(filtered_df, col, st.session_state.custom_units)
-        df_display[col] = df_display[col].apply(
-        lambda x: f"{x:,.2f} {unit}" if pd.notna(x) else "-"
-    )
+            unit = get_unit_for_column(filtered_df, col, st.session_state.custom_units)
+            df_display[col] = df_display[col].apply(
+                lambda x: f"{x:,.2f} {unit}" if pd.notna(x) else "-"
+            )
+
         st.markdown(f"**تعداد رکورد:** {len(df_display):,} | **تجهیزات انتخاب‌شده:** {len(selected_equipment)}")
         st.dataframe(df_display, use_container_width=True, height=500)
+
         # دانلود CSV (با واحد در هدر + بدون NaN)
         df_csv = df_export.copy()
-        df_csv.columns = ["تاریخ شمسی"] + [f"{col} ({get_unit_for_column(filtered_df, col, st.session_state.custom_units)})" for col in selected_equipment]
+        df_csv.columns = ["تاریخ شمسی"] + [
+            f"{col} ({get_unit_for_column(filtered_df, col, st.session_state.custom_units)})"
+            for col in selected_equipment
+        ]
         csv_bytes = df_csv.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+
         col1, col2 = st.columns(2)
         with col1:
             st.download_button(
@@ -1605,9 +1612,11 @@ with tabs[4]:
                 mime="text/csv",
                 key="download_csv_full"
             )
+
         # دانلود PDF حرفه‌ای (تا ۲۰۰۰ رکورد + صفحه‌بندی هوشمند)
         with col2:
             pdf_requested = st.button("دانلود گزارش کامل داده‌ها به صورت PDF", key="download_pdf_full")
+
         if pdf_requested:
             if IS_CLOUD:
                 st.warning("در محیط کلود، فقط CSV قابل دانلود است.")
@@ -1615,6 +1624,7 @@ with tabs[4]:
                 with st.spinner("در حال تولید PDF حرفه‌ای (ممکن است چند ثانیه طول بکشد)..."):
                     buffer = io.BytesIO()
                     elements = []
+
                     # عنوان گزارش
                     header = f"""
                     <b>گزارش کامل داده‌های پایش انرژی</b><br/>
@@ -1622,10 +1632,18 @@ with tabs[4]:
                     تعداد رکورد: {len(df_export):,} | تعداد تجهیزات: {len(selected_equipment)}<br/>
                     تاریخ گزارش: {safe_jalali_format(pd.Timestamp.today())} | تهیه‌شده توسط داشبورد SIMIDCO
                     """
-                    elements.append(Paragraph(rtl(header), ParagraphStyle('Normal', fontName=FONT_NAME, fontSize=12, alignment=1, spaceAfter=30)))
+                    elements.append(Paragraph(
+                        rtl(header),
+                        ParagraphStyle('Normal', fontName=FONT_NAME, fontSize=12, alignment=1, spaceAfter=30)
+                    ))
+
                     # جدول با هدر واحددار
-                    headers = ["ردیف", "تاریخ شمسی"] + [f"{col}<br/>({get_unit_for_column(filtered_df, col, st.session_state.custom_units)})" for col in selected_equipment]
+                    headers = ["ردیف", "تاریخ شمسی"] + [
+                        f"{col}<br/>({get_unit_for_column(filtered_df, col, st.session_state.custom_units)})"
+                        for col in selected_equipment
+                    ]
                     data = [headers]
+
                     # فقط ۲۰۰۰ رکورد اول (برای جلوگیری از PDF خیلی بزرگ)
                     max_rows = 2000
                     # از enumerate برای شماره‌گذاری صحیح و پیوسته ردیف‌ها استفاده می‌شود
@@ -1634,9 +1652,10 @@ with tabs[4]:
                         row_data = [str(row_num), rtl(row["تاریخ شمسی"])]
                         for col in selected_equipment:
                             val = row[col]
-                            formatted = f"{val:,.2f}" if pd.notnull(val) and val != '' else "-"
+                            formatted = f"{val:,.2f}" if pd.notna(val) else "-"
                             row_data.append(rtl(formatted))
                         data.append(row_data)
+
                     # تنظیم عرض ستون‌ها
                     col_widths = [50, 100] + [100] * len(selected_equipment)
                     table = Table(data, colWidths=col_widths, repeatRows=1)
@@ -1654,13 +1673,22 @@ with tabs[4]:
                         ('ROWBACKGROUNDS', (1, 0), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
                     ]))
                     elements.append(table)
+
                     # اگر داده بیشتر از ۲۰۰۰ بود، یادداشت
                     if len(df_export) > max_rows:
                         note = f"<i>توجه: فقط {max_rows:,} رکورد اول نمایش داده شد. برای داده کامل از CSV استفاده کنید.</i>"
-                        elements.append(Paragraph(rtl(note), ParagraphStyle('Normal', fontName=FONT_NAME, fontSize=10, alignment=1, spaceBefore=20)))
-                    # لوگو یا فوتر (اختیاری)
+                        elements.append(Paragraph(
+                            rtl(note),
+                            ParagraphStyle('Normal', fontName=FONT_NAME, fontSize=10, alignment=1, spaceBefore=20)
+                        ))
+
+                    # فوتر
                     footer = "<i>داشبورد پایش برق کنسانتره — توسعه فراگیر سناباد</i>"
-                    elements.append(Paragraph(rtl(footer), ParagraphStyle('Normal', fontName=FONT_NAME, fontSize=9, alignment=1, spaceBefore=30)))
+                    elements.append(Paragraph(
+                        rtl(footer),
+                        ParagraphStyle('Normal', fontName=FONT_NAME, fontSize=9, alignment=1, spaceBefore=30)
+                    ))
+
                     # تولید PDF
                     generate_pdf("گزارش کامل داده‌های پایش انرژی", elements, buffer)
                     buffer.seek(0)
