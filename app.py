@@ -1586,8 +1586,10 @@ with tabs[4]:
         # نمایش جدول با واحد (فقط برای کاربر)
         df_display = df_export.copy()
         for col in selected_equipment:
-            unit = get_unit_for_column(filtered_df, col, st.session_state.custom_units)
-            df_display[col] = df_display[col].apply(lambda x: f"{x:,.2f} {unit}" if pd.notnull(x) and x != '' else "-")
+        unit = get_unit_for_column(filtered_df, col, st.session_state.custom_units)
+        df_display[col] = df_display[col].apply(
+        lambda x: f"{x:,.2f} {unit}" if pd.notna(x) else "-"
+    )
         st.markdown(f"**تعداد رکورد:** {len(df_display):,} | **تجهیزات انتخاب‌شده:** {len(selected_equipment)}")
         st.dataframe(df_display, use_container_width=True, height=500)
         # دانلود CSV (با واحد در هدر + بدون NaN)
