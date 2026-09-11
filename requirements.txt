@@ -1,8 +1,8 @@
 streamlit
 pandas>=2.0.0
 numpy>=1.26.0
-openpyxl==3.1.5
-plotly>=5.3.1
+openpyxl
+plotly
 scikit-learn
 statsmodels
 persiantools
