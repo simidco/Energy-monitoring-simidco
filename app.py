@@ -835,6 +835,7 @@ for factory in selected_factories:
             key=f"equipment_multiselect_{factory}"
         )
         selected_equipment.extend(selected_in_factory)
+        selected_equipment = list(dict.fromkeys(selected_equipment))
 
 if not selected_equipment:
     st.warning("⚠️ لطفاً حداقل یک تجهیز انتخاب کنید.")
@@ -1278,15 +1279,18 @@ with tabs[2]:
             key="monthly_equipment_select"
         )
         unit = get_unit_for_column(filtered_df, monthly_column, st.session_state.custom_units)
-        # استخراج سال‌های شمسی (روی یک کپی محلی، تا دیتافریم مشترک بین تب‌ها دستکاری نشود)
+
+        # استخراج سال‌های شمسی
         def get_jalali_year(date):
             try:
                 return JalaliDate(date).year if pd.notnull(date) else None
             except:
                 return None
+
         df_tab3 = filtered_df.copy()
         df_tab3["سال_شمسی"] = df_tab3["تاریخ"].apply(get_jalali_year)
         available_years = sorted([y for y in df_tab3["سال_شمسی"].dropna().unique() if y])
+
         if not available_years:
             st.error("هیچ سال شمسی معتبری در داده‌ها یافت نشد.")
         else:
@@ -1298,6 +1302,7 @@ with tabs[2]:
                     latest_month = int(safe_jalali_format(latest).split("/")[1])
                     if latest_month < 12:
                         st.warning(f"سال جاری ({current_year}) فقط تا ماه {latest_month} کامل است — نتایج تقریبی هستند.")
+
             # انتخاب نوع نمایش و سال‌ها
             col1, col2 = st.columns([1, 2])
             with col1:
@@ -1314,6 +1319,7 @@ with tabs[2]:
                     default=available_years[-3:] if len(available_years) >= 3 else available_years,
                     key="years_multiselect"
                 )
+
             if not selected_years:
                 st.warning("لطفاً حداقل یک سال انتخاب کنید.")
             else:
@@ -1330,8 +1336,10 @@ with tabs[2]:
                                     7: "پاییز", 8: "پاییز", 9: "پاییز", 10: "زمستان", 11: "زمستان", 12: "زمستان"}[m]
                         except:
                             return "نامشخص"
+
                     df_plot = df_filtered.copy()
                     df_plot["ماه شمسی"] = df_plot["تاریخ"].apply(lambda x: safe_jalali_format(x)[:7] if pd.notnull(x) else "")
+
                     # آماده‌سازی داده بر اساس نوع نمایش
                     if display_type == "ماهانه":
                         plot_df = df_plot.groupby("ماه شمسی")[monthly_column].sum().reset_index()
@@ -1346,12 +1354,14 @@ with tabs[2]:
                         plot_df = plot_df.sort_values("فصل")
                         x_col = "فصل"
                         title_suffix = "فصلی"
-                    else: # سالانه
+                    else:  # سالانه
                         plot_df = df_plot.groupby("سال_شمسی")[monthly_column].sum().reset_index()
                         plot_df = plot_df.sort_values("سال_شمسی")
                         x_col = "سال_شمسی"
                         title_suffix = "سالانه"
+
                     plot_df = plot_df.dropna(subset=[monthly_column])
+
                     if plot_df.empty:
                         st.warning("داده‌ای برای نمایش وجود ندارد.")
                     else:
@@ -1359,6 +1369,7 @@ with tabs[2]:
                         max_idx = plot_df[monthly_column].idxmax()
                         min_idx = plot_df[monthly_column].idxmin()
                         plotly_palette = ["#2E8B57" if i == max_idx else "#DC143C" if i == min_idx else "#C74A1B" for i in plot_df.index]
+
                         # نمودار
                         fig = go.Figure(data=[go.Bar(
                             x=plot_df[x_col],
@@ -1378,6 +1389,7 @@ with tabs[2]:
                             showlegend=False
                         )
                         st.plotly_chart(fig, use_container_width=True)
+
                         # KPIهای خلاصه
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
@@ -1388,11 +1400,13 @@ with tabs[2]:
                             st.metric("بیشترین", f"{plot_df[monthly_column].max():,.0f} {unit}", delta="بالاترین")
                         with col4:
                             st.metric("کمترین", f"{plot_df[monthly_column].min():,.0f} {unit}", delta="پایین‌ترین")
+
                         # جدول داده
                         plot_df_display = plot_df.copy()
                         plot_df_display[monthly_column] = plot_df_display[monthly_column].round(0).astype(int)
                         plot_df_display = plot_df_display.rename(columns={monthly_column: f"مصرف ({unit})", x_col: "دوره"})
                         st.dataframe(plot_df_display.style.format({f"مصرف ({unit})": "{:,}"}), use_container_width=True)
+
                         # دانلود CSV
                         csv = plot_df_display.to_csv(index=False, encoding='utf-8-sig')
                         st.download_button(
@@ -1402,7 +1416,8 @@ with tabs[2]:
                             "text/csv",
                             key="download_csv_monthly"
                         )
-                        # دانلود PDF حرفه‌ای
+
+                        # دانلود PDF
                         if st.button("دانلود گزارش کامل PDF", key="download_tab3_pdf"):
                             if IS_CLOUD:
                                 st.warning("در محیط کلود فقط CSV قابل دانلود است.")
@@ -1410,7 +1425,6 @@ with tabs[2]:
                                 with st.spinner("در حال تولید گزارش PDF با کیفیت بالا..."):
                                     buffer = io.BytesIO()
                                     elements = []
-                                    # عنوان گزارش
                                     header = f"""
                                     <b>گزارش تحلیل مصرف زمانی — {monthly_column}</b><br/>
                                     نوع تحلیل: {title_suffix} | واحد: {unit}<br/>
@@ -1418,7 +1432,6 @@ with tabs[2]:
                                     تاریخ گزارش: {safe_jalali_format(pd.Timestamp.today())} | تعداد دوره: {len(plot_df)}
                                     """
                                     elements.append(Paragraph(rtl(header), ParagraphStyle('Normal', fontName=FONT_NAME, fontSize=11, alignment=1, spaceAfter=20)))
-                                    # جدول داده
                                     table_data = [["دوره", f"مصرف ({unit})"]] + \
                                                  [[rtl(str(row["دوره"])), rtl(f"{row[f'مصرف ({unit})']:,}")] for _, row in plot_df_display.iterrows()]
                                     table = Table(table_data, colWidths=[250, 200])
@@ -1434,7 +1447,6 @@ with tabs[2]:
                                     ]))
                                     elements.append(table)
                                     elements.append(Spacer(1, 20))
-                                    # تصویر نمودار با کیفیت بالا
                                     try:
                                         img_buf = io.BytesIO()
                                         fig.write_image(img_buf, format="png", engine="kaleido", width=1100, height=650, scale=2.5)
@@ -1442,7 +1454,6 @@ with tabs[2]:
                                         elements.append(Image(img_buf, width=520, height=320))
                                     except Exception as e:
                                         st.warning(f"نمودار در PDF اضافه نشد: {e}")
-                                    # تولید PDF
                                     generate_pdf(f"تحلیل مصرف {title_suffix} — {monthly_column}", elements, buffer)
                                     buffer.seek(0)
                                     st.success("گزارش PDF با موفقیت تولید شد!")
@@ -1581,25 +1592,31 @@ with tabs[4]:
     if not selected_equipment:
         st.info("لطفاً از سایدبار حداقل یک تجهیز انتخاب کنید.")
     else:
+        # ⭐ حذف تکراری‌ها برای جلوگیری از خطای Series ambiguous
+        unique_equipment = list(dict.fromkeys(selected_equipment))
+
         # آماده‌سازی داده برای نمایش و دانلود
-        df_export = filtered_df[["تاریخ شمسی"] + selected_equipment].copy()
+        df_export = filtered_df[["تاریخ شمسی"] + unique_equipment].copy()
 
         # نمایش جدول با واحد (فقط برای کاربر)
         df_display = df_export.copy()
-        for col in selected_equipment:
+        for col in unique_equipment:
             unit = get_unit_for_column(filtered_df, col, st.session_state.custom_units)
-            df_display[col] = df_display[col].apply(
+            series = df_display[col]
+            if isinstance(series, pd.DataFrame):
+                series = series.iloc[:, 0]
+            df_display[col] = series.apply(
                 lambda x: f"{x:,.2f} {unit}" if pd.notna(x) else "-"
             )
 
-        st.markdown(f"**تعداد رکورد:** {len(df_display):,} | **تجهیزات انتخاب‌شده:** {len(selected_equipment)}")
+        st.markdown(f"**تعداد رکورد:** {len(df_display):,} | **تجهیزات انتخاب‌شده:** {len(unique_equipment)}")
         st.dataframe(df_display, use_container_width=True, height=500)
 
         # دانلود CSV (با واحد در هدر + بدون NaN)
         df_csv = df_export.copy()
         df_csv.columns = ["تاریخ شمسی"] + [
             f"{col} ({get_unit_for_column(filtered_df, col, st.session_state.custom_units)})"
-            for col in selected_equipment
+            for col in unique_equipment
         ]
         csv_bytes = df_csv.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
 
@@ -1629,7 +1646,7 @@ with tabs[4]:
                     header = f"""
                     <b>گزارش کامل داده‌های پایش انرژی</b><br/>
                     بازه زمانی: {safe_jalali_format(start_date)} تا {safe_jalali_format(end_date)}<br/>
-                    تعداد رکورد: {len(df_export):,} | تعداد تجهیزات: {len(selected_equipment)}<br/>
+                    تعداد رکورد: {len(df_export):,} | تعداد تجهیزات: {len(unique_equipment)}<br/>
                     تاریخ گزارش: {safe_jalali_format(pd.Timestamp.today())} | تهیه‌شده توسط داشبورد SIMIDCO
                     """
                     elements.append(Paragraph(
@@ -1640,24 +1657,22 @@ with tabs[4]:
                     # جدول با هدر واحددار
                     headers = ["ردیف", "تاریخ شمسی"] + [
                         f"{col}<br/>({get_unit_for_column(filtered_df, col, st.session_state.custom_units)})"
-                        for col in selected_equipment
+                        for col in unique_equipment
                     ]
                     data = [headers]
 
                     # فقط ۲۰۰۰ رکورد اول (برای جلوگیری از PDF خیلی بزرگ)
                     max_rows = 2000
-                    # از enumerate برای شماره‌گذاری صحیح و پیوسته ردیف‌ها استفاده می‌شود
-                    # (ایندکس اصلی df_export پیوسته نیست، چون از فیلتر تاریخ روی دیتافریم اصلی به‌دست آمده)
                     for row_num, (idx, row) in enumerate(df_export.head(max_rows).iterrows(), start=1):
                         row_data = [str(row_num), rtl(row["تاریخ شمسی"])]
-                        for col in selected_equipment:
+                        for col in unique_equipment:
                             val = row[col]
                             formatted = f"{val:,.2f}" if pd.notna(val) else "-"
                             row_data.append(rtl(formatted))
                         data.append(row_data)
 
                     # تنظیم عرض ستون‌ها
-                    col_widths = [50, 100] + [100] * len(selected_equipment)
+                    col_widths = [50, 100] + [100] * len(unique_equipment)
                     table = Table(data, colWidths=col_widths, repeatRows=1)
                     table.setStyle(TableStyle([
                         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#C74A1B")),
